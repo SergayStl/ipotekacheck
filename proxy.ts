@@ -6,7 +6,7 @@ const secret = new TextEncoder().encode(
   process.env.JWT_SECRET || 'fallback-secret-change-in-production'
 )
 
-export async function middleware(req: NextRequest) {
+export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl
 
   if (!pathname.startsWith('/dashboard')) return NextResponse.next()
@@ -20,7 +20,6 @@ export async function middleware(req: NextRequest) {
     const { payload } = await jwtVerify(token, secret)
     const role = payload.role as string
 
-    // B2B страницы требуют basic или pro
     if (pathname !== '/dashboard' && role === 'free') {
       return NextResponse.redirect(new URL('/pricing?upgrade=1', req.url))
     }

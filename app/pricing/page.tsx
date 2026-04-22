@@ -9,8 +9,7 @@ const PLANS = [
     id: 'free', name: 'Бесплатный', price: '0 ₽', period: '', icon: Shield, color: 'text-emerald-600',
     bg: 'bg-emerald-50', border: 'border-emerald-100',
     features: ['Калькулятор цен', 'Топ-5 предложений по каждому агрегатору', 'Актуальные данные (обновление ежедневно)', 'Без регистрации'],
-    cta: 'Начать бесплатно', ctaHref: '/calculator', highlight: false,
-    note: '',
+    cta: 'Начать бесплатно', ctaHref: '/calculator', highlight: false, note: '',
   },
   {
     id: 'basic', name: 'Базовый', price: '3 000 ₽', period: '/мес', icon: Zap, color: 'text-brand-600',
@@ -28,25 +27,44 @@ const PLANS = [
   },
 ]
 
+interface FormData {
+  phone: string
+  company: string
+  contact: string
+  comment: string
+}
+
 export default function PricingPage() {
   const [submitting, setSubmitting] = useState<string | null>(null)
   const [submitted, setSubmitted] = useState<string | null>(null)
   const [error, setError] = useState('')
-  const [comment, setComment] = useState('')
   const [showModal, setShowModal] = useState<string | null>(null)
+  const [form, setForm] = useState<FormData>({ phone: '', company: '', contact: '', comment: '' })
+
+  const openModal = (planId: string) => {
+    setError('')
+    setForm({ phone: '', company: '', contact: '', comment: '' })
+    setShowModal(planId)
+  }
 
   const submit = async (plan: string) => {
-    setSubmitting(plan); setError('')
+    setSubmitting(plan)
+    setError('')
     const res = await fetch('/api/subscribe', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ plan, comment }),
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ plan, ...form }),
     })
-    const data = await res.json()
+    const data = await res.json() as { error?: string }
     setSubmitting(null)
     if (res.status === 401) { window.location.href = '/auth/register'; return }
-    if (!res.ok) { setError(data.error); return }
-    setSubmitted(plan); setShowModal(null)
+    if (!res.ok) { setError(data.error ?? 'Ошибка отправки'); return }
+    setSubmitted(plan)
+    setShowModal(null)
   }
+
+  const set = (field: keyof FormData) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+    setForm(prev => ({ ...prev, [field]: e.target.value }))
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -94,7 +112,7 @@ export default function PricingPage() {
               ) : plan.ctaHref ? (
                 <a href={plan.ctaHref} className="btn-primary bg-emerald-600 hover:bg-emerald-700 justify-center">{plan.cta}</a>
               ) : (
-                <button onClick={() => setShowModal(plan.id)} disabled={submitting === plan.id}
+                <button onClick={() => openModal(plan.id)} disabled={submitting === plan.id}
                   className={`btn-primary justify-center ${plan.highlight ? 'bg-purple-600 hover:bg-purple-700' : ''} disabled:opacity-60`}>
                   {submitting === plan.id ? <Loader2 className="w-4 h-4 animate-spin" /> : plan.cta}
                 </button>
@@ -103,7 +121,7 @@ export default function PricingPage() {
           ))}
         </div>
 
-        {error && (
+        {error && !showModal && (
           <div className="mt-6 max-w-md mx-auto bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 text-sm text-center">
             {error}
           </div>
@@ -132,21 +150,47 @@ export default function PricingPage() {
         </div>
       </main>
 
-      {/* Modal for subscription request */}
+      {/* Subscription request modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl">
-            <h3 className="text-lg font-bold text-slate-900 mb-2">
+            <h3 className="text-lg font-bold text-slate-900 mb-1">
               Заявка на тариф «{PLANS.find(p => p.id === showModal)?.name}»
             </h3>
-            <p className="text-sm text-slate-500 mb-4">
-              Оставьте комментарий (необязательно) — например, название компании и задачи которые хотите решить.
-            </p>
-            <textarea className="input resize-none h-24 mb-4" placeholder="Опишите ваши задачи..."
-              value={comment} onChange={e => setComment(e.target.value)} />
-            <div className="flex gap-3">
+            <p className="text-sm text-slate-500 mb-4">Заполните контактные данные — мы свяжемся в течение 24 часов.</p>
+
+            <div className="space-y-3">
+              <div>
+                <label className="label">Телефон <span className="text-red-500">*</span></label>
+                <input type="tel" className="input" placeholder="+7 (___) ___-__-__"
+                  value={form.phone} onChange={set('phone')} required />
+              </div>
+              <div>
+                <label className="label">Название компании <span className="text-red-500">*</span></label>
+                <input type="text" className="input" placeholder="ООО «СтрахКомпания»"
+                  value={form.company} onChange={set('company')} required />
+              </div>
+              <div>
+                <label className="label">Email или Telegram для связи <span className="text-red-500">*</span></label>
+                <input type="text" className="input" placeholder="you@company.ru или @username"
+                  value={form.contact} onChange={set('contact')} required />
+              </div>
+              <div>
+                <label className="label">Комментарий</label>
+                <textarea className="input resize-none h-20" placeholder="Опишите ваши задачи..."
+                  value={form.comment} onChange={set('comment')} />
+              </div>
+            </div>
+
+            {error && (
+              <div className="mt-3 bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 text-sm">{error}</div>
+            )}
+
+            <div className="flex gap-3 mt-4">
               <button onClick={() => setShowModal(null)} className="btn-outline flex-1 justify-center">Отмена</button>
-              <button onClick={() => submit(showModal)} disabled={!!submitting}
+              <button
+                onClick={() => submit(showModal)}
+                disabled={!!submitting || !form.phone || !form.company || !form.contact}
                 className="btn-primary flex-1 justify-center disabled:opacity-60">
                 {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Отправить заявку'}
               </button>
