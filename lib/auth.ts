@@ -30,7 +30,8 @@ export async function verifyToken(token: string): Promise<JWTPayload | null> {
 }
 
 export async function getSession(): Promise<JWTPayload | null> {
-  const token = (await cookies()).get('auth_token')?.value
+  const cookieStore = await cookies()
+  const token = cookieStore.get('auth_token')?.value
   if (!token) return null
   return verifyToken(token)
 }
